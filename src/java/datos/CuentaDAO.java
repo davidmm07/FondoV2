@@ -12,6 +12,7 @@ import java.sql.SQLClientInfoException;
 import java.sql.SQLException;
 import negocio.Credito;
 import negocio.Cuenta;
+import negocio.Movimiento;
 import util.RHException;
 import util.ServiceLocator;
 
@@ -25,10 +26,12 @@ public class CuentaDAO {
 
     }
 
+    
+    // Se le agrega una única cuenta a un socio
     public void agregarCuenta(Cuenta cuenta) throws RHException {
         try {
             String strSQL = "INSERT INTO CUENTA(K_IDCUENTA,V_SALDO,SOCIO_K_IDSOCIO) "
-                    + "VALUES (CUENTA_SEQ.NEXTVAL,0,?)";
+                    + "VALUES (CUENTA_SEQ.NEXTVAL,40000,?)";
             Connection conexion = ServiceLocator.getInstance().tomarConexion();
             PreparedStatement prepStmt = conexion.prepareStatement(strSQL);
             prepStmt.setInt(1, cuenta.getSocio_k_idSocio());
@@ -42,6 +45,7 @@ public class CuentaDAO {
         }
     }
     
+    // Se consulta la cuenta teniendo en cuenta la identificación el socio
     public void buscarCuenta(int socio_k_idSocio){
         try{
             Cuenta c = new Cuenta();
@@ -78,13 +82,13 @@ public class CuentaDAO {
     }
     
     // Al desembolsar un crédito, se le suma el valor prestado a la cuenta de un socio
-    public void sumarCreditoASaldo(Cuenta cuenta) throws RHException{
+    public void sumarCreditoASaldo(Cuenta cuenta, Credito credito) throws RHException{
         try{
             String strSQL = "UPDATE CUENTA SET V_SALDO = V_SALDO + (SELECT V_PRESTADO FROM CREDITO WHERE CUENTA_K_IDCUENTA = ?) "
                     + "WHERE K_IDCUENTA = ?";
             Connection conexion = ServiceLocator.getInstance().tomarConexion();
             PreparedStatement prepStmt = conexion.prepareStatement(strSQL);
-            prepStmt.setInt(1, cuenta.getK_idCuenta());
+            prepStmt.setInt(1, credito.getCuenta_k_idCuenta());
             prepStmt.setInt(2, cuenta.getK_idCuenta());
             prepStmt.executeQuery();
             prepStmt.close();
@@ -97,20 +101,40 @@ public class CuentaDAO {
     }
     
     //Restar aporte realizado por cheque al saldo en la cuenta del socio
-    public void restarSaldoPorAporte(Cuenta cuenta) throws RHException{
+    public void restarSaldoPorAporte(Cuenta cuenta, Movimiento movimiento) throws RHException{
         try{
             String strSQL = "UPDATE CUENTA SET V_SALDO=V_SALDO-(SELECT V_MOV FROM MOVIMIENTO "
-                    + "WHERE N_TIPO = 'APORTE' AND N_MEDPAGO = 'CHEQUE' CUENTA_K_IDCUENTA = ?) "
+                    + "WHERE N_TIPO = 'APORTE' AND  CUENTA_K_IDCUENTA = ?) "
                     + "WHERE K_IDCUENTA = ?";
             Connection conexion = ServiceLocator.getInstance().tomarConexion();
             PreparedStatement prepStmt = conexion.prepareStatement(strSQL);
-            prepStmt.setInt(1, cuenta.getK_idCuenta());
+            prepStmt.setInt(1, movimiento.getCuenta_k_idCuenta());
             prepStmt.setInt(2, cuenta.getK_idCuenta());
             prepStmt.executeQuery();
             prepStmt.close();
             ServiceLocator.getInstance().commit();
         }catch(SQLException e){
             throw new RHException("CuentaDAO", "No se resto el valor del aporte al saldo "+e.getMessage());
+        }finally{
+            ServiceLocator.getInstance().liberarConexion();
+        }
+    }
+    
+    // Restar saldo de la cuenta de un socio por concepto de pago de una cuota de crédito
+    public void restarSaldoPorCuota(Cuenta cuenta, Movimiento movimiento) throws RHException{
+        try{
+            String strSQL = "UPDATE CUENTA SET V_SALDO = V_SALDO-(SELECT V_MOV FROM MOVIMIENTO "
+                    + "WHERE N_TIPO = 'CUOTA DE CREDITO' AND CUENTA_K_IDCUENTA = ?) "
+                    + "WHERE K_IDCUENTA=?";
+            Connection conexion = ServiceLocator.getInstance().tomarConexion();
+            PreparedStatement prepStmt = conexion.prepareStatement(strSQL);
+            prepStmt.setInt(1, movimiento.getCuenta_k_idCuenta());
+            prepStmt.setInt(2, cuenta.getK_idCuenta());
+            prepStmt.executeQuery();
+            prepStmt.close();
+            ServiceLocator.getInstance().commit();
+        }catch(SQLException e){
+            throw new RHException("CuentaDAO", "No se resto del saldo la cuota del crédito "+e.getMessage());
         }finally{
             ServiceLocator.getInstance().liberarConexion();
         }

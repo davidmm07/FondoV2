@@ -9,7 +9,9 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import negocio.Credito;
 import negocio.CuentaFondo;
+import negocio.Movimiento;
 import negocio.Socio;
 import util.RHException;
 import util.ServiceLocator;
@@ -44,6 +46,7 @@ public class CuentaFondoDAO {
         }
     }
     
+    // Se actualiza el valor de los aportes con la suma de todos los movimientos tipo aporte
     public void calcularValorAportes() throws RHException{
         try{
             String strSQL = "UPDATE CUENTA_FONDO SET V_APORTES = (SELECT SUM(V_MOV) FROM MOVIMIENTO "
@@ -60,13 +63,16 @@ public class CuentaFondoDAO {
         }
     }
     
+    
     // Se suma el aporte de un socio a la cuenta del fondo
-    public void sumarAporte() throws RHException{
+    public void sumarAporte(Movimiento movimiento) throws RHException{
         try{
             String strSQL = "UPDATE CUENTA_FONDO SET V_APORTES = V_APORTES + "
-                    + "(SELECT V_MOV FROM MOVIMIENTO WHERE N_TIPO = 'APORTE' AND F_REGISTRO = TO_DATE(SYSDATE))";
+                    + "(SELECT V_MOV FROM MOVIMIENTO WHERE N_TIPO = 'APORTE' AND F_REGISTRO = TO_DATE(SYSDATE) "
+                    + "AND CUENTA_K_IDCUENTA=?)";
             Connection conexion = ServiceLocator.getInstance().tomarConexion();
             PreparedStatement prepStmt = conexion.prepareStatement(strSQL);
+            prepStmt.setInt(1, movimiento.getCuenta_k_idCuenta());
             prepStmt.executeQuery();
             prepStmt.close();
             ServiceLocator.getInstance().commit();
@@ -89,6 +95,23 @@ public class CuentaFondoDAO {
             ServiceLocator.getInstance().commit();
         }catch(SQLException e){
             throw new RHException("CuentaFondoDAO", "No se sumo la cuota a la cuenta del fondo "+e.getMessage());
+        }finally{
+            ServiceLocator.getInstance().liberarConexion();
+        }
+    }
+    
+    public void otorgarCredito(Credito credito) throws RHException{
+        try{
+            String strSQL = "UPDATE CUENTA_FONDO SET V_CREDITOS = V_CREDITOS + (SELECT V_PRESTADO FROM CREDITO "
+                    + "WHERE N_E_CREDITO_CK='APROBADO' AND SOCIO_K_IDSOCIO=?)";
+            Connection conexion = ServiceLocator.getInstance().tomarConexion();
+            PreparedStatement prepStmt = conexion.prepareStatement(strSQL);
+            prepStmt.setInt(1, credito.getSocio_k_id_socio());
+            prepStmt.executeQuery();
+            prepStmt.close();
+            ServiceLocator.getInstance().commit();
+        }catch(SQLException e){
+            throw new RHException("CuentaFondoDAO", " No se otorgo el crédito "+e.getMessage());
         }finally{
             ServiceLocator.getInstance().liberarConexion();
         }

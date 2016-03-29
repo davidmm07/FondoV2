@@ -23,6 +23,7 @@ public class FondoDAO {
         
     }
     
+    // Se consulta el fondo con sus condiciones
     public void consultarFondo(){
         try{
             Fondo f = new Fondo();
@@ -51,14 +52,14 @@ public class FondoDAO {
             prepStmt.close();
             ServiceLocator.getInstance().commit();
         }catch(SQLException e){
-            throw new RHException("FondoDAO","No se modificó el capital total "+e.getMessage());
+            throw new RHException("FondoDAO", "No se modificó el capital total "+e.getMessage());
         }finally{
             ServiceLocator.getInstance().liberarConexion();
         }
     }
     
     // Se calcula el valor del capital disponible del fondo
-    public void modificarCapitalDispFondo(Fondo fondo) throws RHException{
+    public void modificarCapitalDispFondo() throws RHException{
         try{
             String strSQL = "UPDATE FONDO SET V_CAPITAL_DISP = (SELECT V_APORTES-V_CREDITOS FROM CUENTA_FONDO)";
             Connection conexion = ServiceLocator.getInstance().tomarConexion();

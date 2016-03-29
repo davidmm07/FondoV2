@@ -24,6 +24,7 @@ public class MovimientoDAO {
 
     }
 
+    // Se agrega un nuevo movimiento que asocia la cuenta de un socio con la del fondo
     public void agregarMovimiento(Movimiento movimiento) throws RHException {
         try {
             String strSQL = "INSERT INTO MOVIMIENTO (K_IDMOV,N_TIPO,F_REGISTRO,V_MOV,"
@@ -46,6 +47,7 @@ public class MovimientoDAO {
         }
     }
 
+    // Se busca un movimiento teniendo como parámetro la cuenta de un socio
     public void buscarMovimiento(int cuenta_k_idCuenta) {
         try {
             Movimiento m = new Movimiento();
@@ -68,6 +70,7 @@ public class MovimientoDAO {
         }
     }
 
+    // Se buscan los movimientos tipo aporte
     public void buscarAportes(int cuenta_k_idCuenta) {
         try {
             Movimiento m = new Movimiento();
@@ -88,6 +91,31 @@ public class MovimientoDAO {
 
         }
     }
+    
+    //Se buscan las cuotas de un socio
+    public void buscarCuotas(int cuenta_k_idCuenta) {
+        try {
+            Movimiento m = new Movimiento();
+            String strSQL = "SELECT K_IDMOV,F_REGISTRO,V_MOV,N_MEDPAGO,CUENTA_K_IDCUENTA FROM MOVIMIENTO "
+                    + "WHERE CUENTA_K_IDCUENTA = ? AND N_TIPO = 'CUOTA DE CREDITO'" ;
+            Connection conexion = ServiceLocator.getInstance().tomarConexion();
+            PreparedStatement prepStmt = conexion.prepareStatement(strSQL);
+            prepStmt.setInt(1, cuenta_k_idCuenta);
+            ResultSet rs = prepStmt.executeQuery();
+            while (rs.next()) {
+                rs.getInt(1);
+                rs.getDate(2);
+                rs.getInt(3);
+                rs.getString(4);
+                m.setCuenta_k_idCuenta(rs.getInt(5));
+            }
+        } catch (SQLException e) {
+
+        }
+    }
+    
+    
+    
     
     // Se calcula el tiempo desde el último aporte para saber si el socio está el día con sus aportes
     public Double calcularTiempoDesdeUltimoAporte(int cuenta_k_idCuenta){

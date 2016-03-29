@@ -9,6 +9,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import negocio.Credito;
 import negocio.PlanPago;
 import util.RHException;
 import util.ServiceLocator;
@@ -23,6 +24,7 @@ public class PlanPagoDAO {
         
     }
     
+    // Se agrega un plan de pago asociado a un crédito
     public void agregarPlanPago(PlanPago plan) throws RHException{
         try{
             String strSQL = "INSERT INTO PLAN_PAGO(K_IDCONSIG,V_CAPITAL,V_INTERESES,CREDITO_K_IDCREDITO) "
@@ -42,6 +44,7 @@ public class PlanPagoDAO {
         }
     }
     
+    // Se busca el plan de pago por el id del crédito
     public void buscarPlanPago(int credito_k_idCredito){
         try{
             PlanPago p = new PlanPago();
@@ -78,6 +81,28 @@ public class PlanPagoDAO {
             ServiceLocator.getInstance().commit();
         }catch(SQLException e){
             throw new RHException("PlanPagoDAO","No se pudo modificar el plan de pago "+ e.getMessage());
+        }finally{
+            ServiceLocator.getInstance().liberarConexion();
+        }
+    }
+    
+    //Se modifica el valor del capital y de los intereses teniendo en cuenta el valor prestado en el credito
+    //y la tasa de interés
+    public void calcularCapitalEIntereses(PlanPago planPago, Credito credito) throws RHException{
+        try{
+            String strSQL = "UPDATE PLAN_PAGO SET V_CAPITAL = (SELECT V_PRESTADO FROM CREDITO WHERE K_IDCREDITO = ?), "
+                    + "V_INTERESES = (SELECT V_PRESTADO/100 FROM CREDITO WHERE K_IDCREDITO = ?)*"
+                    + "(SELECT P_TASAINTERES FROM CREDITO WHERE K_IDCREDITO = ?) WHERE CREDITO_K_IDCREDITO=?";
+            Connection conexion = ServiceLocator.getInstance().tomarConexion();
+            PreparedStatement prepStmt = conexion.prepareStatement(strSQL);
+            prepStmt.setInt(1, credito.getK_idcredito());
+            prepStmt.setInt(2, credito.getK_idcredito());
+            prepStmt.setInt(3, planPago.getCredito_k_idCredito());
+            prepStmt.executeQuery();
+            prepStmt.close();
+            ServiceLocator.getInstance().commit();
+        }catch(SQLException e){
+            throw new RHException("PlanPagoDAO", "No se calcularon los campos "+e.getMessage());
         }finally{
             ServiceLocator.getInstance().liberarConexion();
         }

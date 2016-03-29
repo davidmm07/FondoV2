@@ -23,16 +23,16 @@ public class RegFondoDAO {
         
     }
     
+    // Se agrega un registro del estado del fondo
     public void agregarRegFondo(RegFondo regFondo) throws RHException{
         try{
             String strSQL = "INSERT INTO REGFONDO(K_REGISTRO,V_RENDNETOS,F_RENDNETOS,N_PROCESO,CUENTA_FONDO_K_CTA_FONDO) "
-                    + "VALUES(REGFONDO_SEQ.NEXTVAL,?,?,?,?)";
+                    + "VALUES(REGFONDO_SEQ.NEXTVAL,(SELECT V_INTERESXCREDITO+V_RENDFINAN-V_GFINANCIERO FROM CUENTA_FONDO),"
+                    + "TO_DATE(SYSDATE,'DD/MM/YY'),?,?)";
             Connection conexion = ServiceLocator.getInstance().tomarConexion();
             PreparedStatement prepStmt = conexion.prepareStatement(strSQL);
-            prepStmt.setDouble(1, regFondo.getV_rendNetos());
-            prepStmt.setString(2, regFondo.getF_rendNetos());
-            prepStmt.setString(3, regFondo.getN_proceso());
-            prepStmt.setInt(4, regFondo.getCuenta_fondo_k_cta_fondo());
+            prepStmt.setString(1, regFondo.getN_proceso());
+            prepStmt.setInt(2, regFondo.getCuenta_fondo_k_cta_fondo());
             prepStmt.executeUpdate();
             prepStmt.close();
             ServiceLocator.getInstance().commit();

@@ -10,6 +10,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import negocio.Credito;
+import negocio.Movimiento;
 import util.RHException;
 import util.ServiceLocator;
 
@@ -25,7 +26,7 @@ public class CreditoDAO {
 
     }
 
-    // Aprobación del crédito
+    // Aprobación del crédito para un socio, para lo cual debe estar al día con sus aportes
     public void agregarCredito(Credito credito, int cuenta_k_idCuenta) throws RHException {
         if (movimientoDAO.calcularTiempoDesdeUltimoAporte(cuenta_k_idCuenta) < 1 && movimientoDAO.calcularTiempoDesdeUltimoAporte(cuenta_k_idCuenta) >= 0) {
 
@@ -51,6 +52,8 @@ public class CreditoDAO {
         }
     }
 
+    
+    // buscar crédito por el id del socio asociado
     public void buscarCredito(int socio_k_idsocio) {
         try {
             Credito c = new Credito();
@@ -74,7 +77,7 @@ public class CreditoDAO {
     }
 
     // Desembolso del credito
-    public void modificarCredito(Credito credito) throws RHException {
+    public void desembolsarCredito(Credito credito) throws RHException {
         try {
             String strSQL = "UPDATE CREDITO SET F_PLAZO = ?, F_DESEMBOLSO = TO_DATE(SYSDATE,'DD/MM/YY'), V_SDOPEND=V_PRESTADO, "
                     + "N_E_CREDITO_CK = 'VIGENTE' WHERE SOCIO_K_IDSOCIO = ?";
@@ -111,6 +114,7 @@ public class CreditoDAO {
 
     public double consultarSaldoCredito(int socio_k_idSocio) {
         try {
+            double sc = -1;
             Credito c = new Credito();
             String strSQL = "SELECT V_SDOPEND, SOCIO_K_IDSOCIO FROM CREDITO WHERE SOCIO_K_IDSOCIO = ?";
             Connection conexion = ServiceLocator.getInstance().tomarConexion();
@@ -118,22 +122,23 @@ public class CreditoDAO {
             prepStmt.setInt(1, socio_k_idSocio);
             ResultSet rs = prepStmt.executeQuery();
             while (rs.next()) {
-                rs.getDouble(1);
+                sc = rs.getDouble(1);
                 c.setSocio_k_id_socio(rs.getInt(2));
             }
-            return rs.getDouble(1);
+            return sc;
         } catch (SQLException e) {
             return -1;
         }
     }
 
+    // Cuando el saldo pendiente del crédito es cero, este se da por cancelado
+    // y se desvincula la cuenta del socio del crédito
     public void cancelarCredito(Credito credito) throws RHException {
         if (consultarSaldoCredito(credito.getSocio_k_id_socio()) == 0) {
             try {
 
-                String strSQL = "UPDATE CREDITO SET F_ULTPAGO = TO_DATE(SYSDATE,'DD/MM/YY'), V_ULTPAGO =V_SDOPEND, "
-                        + "V_SDOPEND=0, N_E_CREDITO_CK = 'CANCELADO' "
-                        + "WHERE SOCIO_K_IDSOCIO = ?";
+                String strSQL = "UPDATE CREDITO SET F_ULTPAGO = TO_DATE(SYSDATE,'DD/MM/YY'), "
+                        + "N_E_CREDITO_CK = 'CANCELADO', CUENTA_K_IDCUENTA = NULL WHERE SOCIO_K_IDSOCIO = ?";
                 Connection conexion = ServiceLocator.getInstance().tomarConexion();
                 PreparedStatement prepStmt = conexion.prepareStatement(strSQL);
                 prepStmt.setInt(1, credito.getSocio_k_id_socio());
@@ -150,7 +155,7 @@ public class CreditoDAO {
     
     // Se paga una cuota del crédito por parte del socio y se descuenta al valor 
     // del saldo pendiente en el crédito
-    public void descontarSaldoPend(Credito credito) throws RHException{
+    public void descontarSaldoPend(Credito credito, Movimiento movimiento) throws RHException{
         try{
             String strSQL = "UPDATE CREDITO SET V_SDOPEND = V_SDOPEND-(SELECT V_MOV FROM MOVIMIENTO "
                     + "WHERE CUENTA_K_IDCUENTA = ? AND N_TIPO = 'CUOTA DE CREDITO' AND F_REGISTRO=TO_DATE(SYSDATE)), "
@@ -159,8 +164,8 @@ public class CreditoDAO {
                     + "SET F_ULTPAGO = TO_DATE(SYSDATE,'DD//MM/YY') WHERE CUENTA_K_IDCUENTA = ?";
             Connection conexion = ServiceLocator.getInstance().tomarConexion();
             PreparedStatement prepStmt = conexion.prepareStatement(strSQL);
-            prepStmt.setInt(1,credito.getCuenta_k_idCuenta());
-            prepStmt.setInt(2,credito.getCuenta_k_idCuenta());
+            prepStmt.setInt(1,movimiento.getCuenta_k_idCuenta());
+            prepStmt.setInt(2,movimiento.getCuenta_k_idCuenta());
             prepStmt.setInt(3,credito.getCuenta_k_idCuenta());
             prepStmt.executeQuery();
             prepStmt.close();
